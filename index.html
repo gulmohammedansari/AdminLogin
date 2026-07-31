@@ -205,36 +205,57 @@
       overflow: hidden;
     }
     .table-scroll { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed; }
     thead th {
       background: var(--bg-field);
       text-align: left;
-      padding: 0.85rem 1rem;
-      font-size: 0.72rem;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.68rem;
       font-weight: 600;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
       text-transform: uppercase;
       color: var(--accent-cyan);
-      white-space: nowrap;
+      white-space: normal;
+      word-break: break-word;
       border-bottom: 1px solid var(--border);
     }
     tbody td {
-      padding: 0.8rem 1rem;
+      padding: 0.6rem 0.75rem;
       border-bottom: 1px solid var(--border);
-      white-space: nowrap;
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: break-word;
       color: var(--text-primary);
     }
     tbody tr:last-child td { border-bottom: none; }
     tbody tr:hover { background: rgba(59,130,246,0.04); }
+
+    /* Fixed column widths for the Registrations table (10 known columns,
+       always in this order). table-layout:fixed + these percentages mean
+       the table can never exceed its container's width — long content
+       (address, email) wraps to a second line within its own column
+       instead of stretching the table and forcing horizontal scroll. */
+    #dataTable th:nth-child(1),  #dataTable td:nth-child(1)  { width: 9%; }  /* Timestamp */
+    #dataTable th:nth-child(2),  #dataTable td:nth-child(2)  { width: 12%; } /* Head of Family */
+    #dataTable th:nth-child(3),  #dataTable td:nth-child(3)  { width: 6%; }  /* Members */
+    #dataTable th:nth-child(4),  #dataTable td:nth-child(4)  { width: 8%; }  /* Flat Status */
+    #dataTable th:nth-child(5),  #dataTable td:nth-child(5)  { width: 9%; }  /* Phone */
+    #dataTable th:nth-child(6),  #dataTable td:nth-child(6)  { width: 13%; } /* Email */
+    #dataTable th:nth-child(7),  #dataTable td:nth-child(7)  { width: 8%; }  /* Aadhaar */
+    #dataTable th:nth-child(8),  #dataTable td:nth-child(8)  { width: 6%; }  /* Sector */
+    #dataTable th:nth-child(9),  #dataTable td:nth-child(9)  { width: 7%; }  /* Cluster */
+    #dataTable th:nth-child(10), #dataTable td:nth-child(10) { width: 22%; } /* Address */
+
     .cluster-chip {
       display: inline-block;
-      padding: 0.2rem 0.6rem;
+      padding: 0.15rem 0.5rem;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 600;
       background: rgba(59,130,246,0.12);
       color: #93c5fd;
       border: 1px solid rgba(59,130,246,0.3);
+      white-space: nowrap;
     }
     .empty-state {
       text-align: center;
@@ -361,7 +382,7 @@
       <div class="logo-icon">
         <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
       </div>
-      <span class="logo-text">Muslims of Ulwe</span>
+      <span class="logo-text">FamilyConnect Admin</span>
     </div>
 
     <!-- ═══ LOGIN SCREEN ═══ -->
@@ -404,6 +425,7 @@
 
       <div class="tab-row" id="tabRow">
         <button class="tab-btn active" id="tabRegistrations" data-view="registrations">Registrations</button>
+        <!-- "Manage Admins" tab button is inserted here by JS, only for SuperAdmin -->
       </div>
 
       <!-- ═══ REGISTRATIONS VIEW ═══ -->
@@ -489,8 +511,9 @@
   <div class="toast" id="toast"></div>
 
   <script>
-
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxon49-M0VjHp5uL5fuwkwtH0LxvTHg0aDDZNVNCUxytnSsYBqhC-in7de-85ckc8h/exec';
+    // ─── CONFIGURATION ─────────────────────────────────────────────────────────
+    // Use the SAME Google Apps Script Web App URL as family_registration_form.html
+    const SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
     // ───────────────────────────────────────────────────────────────────────────
 
     const loginScreen     = document.getElementById('loginScreen');
@@ -499,7 +522,10 @@
     const loginBtn        = document.getElementById('loginBtn');
     const loginError      = document.getElementById('loginError');
 
-
+    // ── Helper: call the Apps Script backend and read the JSON response.
+    // NOTE: we use text/plain as the Content-Type (even though the body IS json)
+    // to avoid a CORS preflight request, which Apps Script web apps don't handle.
+    // This lets us actually read the response (unlike no-cors mode).
     async function callScript(payload) {
       const res = await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -517,7 +543,7 @@
       setTimeout(() => t.classList.remove('show'), 4500);
     }
 
-
+    // ── Session persistence (survives page refresh within the same tab) ────────
     function saveSession(token, role, username) {
       sessionStorage.setItem('fc_token', token);
       sessionStorage.setItem('fc_role', role);
@@ -536,7 +562,7 @@
       sessionStorage.removeItem('fc_username');
     }
 
-
+    // ── Login ───────────────────────────────────────────────────────────────
     loginForm.addEventListener('submit', async function(e) {
       e.preventDefault();
       loginError.classList.remove('show');
@@ -577,7 +603,7 @@
       }
     });
 
-
+    // ── Logout ──────────────────────────────────────────────────────────────
     document.getElementById('logoutBtn').addEventListener('click', async function() {
       const session = getSession();
       try { await callScript({ action: 'logout', token: session.token }); } catch (e) {}
@@ -587,7 +613,7 @@
       loginForm.reset();
     });
 
-
+    // ── Enter dashboard + load data ─────────────────────────────────────────
     async function enterDashboard() {
       const session = getSession();
       if (!session.token) return;
@@ -664,11 +690,11 @@
       return div.innerHTML;
     }
 
-
+    // ── Manage Admins tab (SuperAdmin only) ─────────────────────────────────
     let manageTabInitialized = false;
 
     function setupManageAdminsTab() {
-
+      // Insert the "Manage Admins" tab button once
       if (!document.getElementById('tabManageAdmins')) {
         const btn = document.createElement('button');
         btn.className = 'tab-btn';
